@@ -1,0 +1,3 @@
+digraph { 
+rankdir = LR 
+node[shape=record, fontname="Arial Black", fontsize=16] 

@@ -1,0 +1,57 @@
+{
+    {
+        "Operacion":"Suma"
+        "Valor1":4.5
+        "Valor2":5.32
+    },
+    {
+        "Operacion":"Resta"
+        "Valor1":4.5
+        "Valor2":[
+        "Operacion":"Potencia"
+        "Valor1":10
+        "Valor2":3
+    ]},
+    {
+        "Operacion":"Suma"
+        "Valor1":[
+            "Operacion":"Seno"
+            "Valor1":90
+        ]
+        "Valor2":5.32
+    }
+    "Texto":"Realizacion de Operaciones"
+    "Color-Fondo-Nodo":"Amarillo"
+    "Color-Fuente-Nodo":"Rojo"
+    "Forma-Nodo":"Circulo"
+}
+
+S0 -> { S1
+S1 -> { S2
+S2 -> "Operacion" S3
+S3 -> : S4
+S4 -> SIGNO S5
+
+S5 -> "Valor1" S6
+S6 -> : S7
+S7 -> DIGITO S8
+S7 -> [ S9
+S9 -> S2 S10
+S10 -> ] S8
+
+S8 -> "Valor2" S11
+S11 -> : S12
+S12 -> DIGITO S13
+S12 -> [ S14
+S14 -> S2 S15
+S15 -> ] S13
+
+S13 -> } S16
+S16 -> , S17
+S17 -> S1 S18
+S16 -> } S18
+S18 -> Epsilon
+
+
+
+

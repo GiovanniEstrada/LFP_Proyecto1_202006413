@@ -1,0 +1,30 @@
+
+{
+    {
+        "Operacion":"Suma"
+        "Valor1":4.5
+        "Valor2": 5.32
+    },
+    {
+        "Operacion":"Resta"
+        "Valor1":[
+            "Operacion":"Suma"
+            "Valor1":5
+            "Valor2":2
+        ]
+        "Valor2": [
+            "Operacion":"Potencia"
+            "Valor1":10
+            "Valor2": 4
+        ]
+    },
+    {
+        "Operacion":"Division"
+        "Valor1":21
+        "Valor2": 7
+    }
+    "Texto": Realizacion de Operaciones"
+    "Color-Fondo-Nodo":"Amarillo"
+    "Color-Fuente-Nodo":"Rojo"
+    "Forma-Nodo":"Circulo"
+}
