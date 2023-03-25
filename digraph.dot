@@ -1,14 +1,19 @@
 digraph { 
 rankdir = LR 
-node[shape=record, fontname="Arial Black", fontsize=16] 
-0 -> 4.5 
-0 -> 5.32 
-1 -> 5 
-1 -> 2 
-2 -> 10 
-2 -> 4 
-3 -> 0 
-3 -> 10000.0 
-4 -> 21 
-4 -> 7 
+node[shape=circle style=filled fontcolor=black color=yellow] 
+ "a" [label = "Suma"] 
+a -> 4.5 
+a -> 5.32 
+ "b" [label = "Suma"] 
+b -> 5 
+b -> 2 
+ "c" [label = "Multiplicacion"] 
+c -> 5 
+c -> 5 
+ "d" [label = "Resta"] 
+d -> 7.0 
+d -> 25.0 
+ "e" [label = "Division"] 
+e -> 21 
+e -> 7 
 } 

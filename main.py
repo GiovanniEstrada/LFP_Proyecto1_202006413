@@ -2,10 +2,15 @@ import tkinter as tk
 from tkinter import messagebox
 from tkinter import filedialog
 import subprocess
+from Analizador import Analizador
+
+glbArchivo = ""
 
 
 def openDoc():
     archivo = filedialog.askopenfilename(title="Abrir archivo")
+    global glbArchivo
+    glbArchivo = archivo
     if archivo:
         with open(archivo, "r") as f:
             informacion = f.read()
@@ -16,7 +21,9 @@ def openDoc():
 
 
 def saveDoc():
+
     archivo = filedialog.asksaveasfilename(title="Guardar archivo")
+    glbArchivo = archivo
     if archivo:
         informacion = editor.get(1.0, tk.END)
         with open(archivo, "w") as f:
@@ -26,6 +33,7 @@ def saveDoc():
 
 def newDoc():
     archivo = filedialog.asksaveasfilename(title="Guardar como")
+    glbArchivo = archivo
     if archivo:
         informacion = editor.get(1.0, tk.END)
         with open(archivo, "w") as f:
@@ -33,7 +41,20 @@ def newDoc():
 
 
 def analizar():
+    global glbArchivo
     messagebox.showinfo("Analizar", "Archivo analizado exitosamente")
+    print(glbArchivo)
+
+    archivo = open(glbArchivo, 'r')
+    lineas = ''
+    for i in archivo.readlines():
+        lineas += i
+
+    a = Analizador(lineas)
+    a._compile()
+    print(a.ListaErrores)
+    print(a.ListaResultados)
+    a.graficar()
 
 
 def errores():

@@ -1,3 +1,5 @@
+import os
+
 archivo = open('entrada.txt', 'r')
 lineas = ''
 for i in archivo.readlines():
@@ -13,7 +15,13 @@ class Analizador:
         self.fila = 0  # FILA ACTUAL
         self.columna = 0  # COLUMNA ACTUAL
         self.ListaErrores = []  # LISTA PARA GUARDAR ERRORES
+        self.ListaResultadosTmp = []
         self.ListaResultados = []
+        self.nOperacion = 0
+        self.title = ""
+        self.colorFondo = ""
+        self.colorFuente = ""
+        self.forma = ""
 
     def _token(self, token: str, estado_actual: str, estado_sig: str):
         if self.lineas[self.index] != " ":
@@ -214,10 +222,10 @@ class Analizador:
             # S10 -> ] S8
             elif estado_actual == 'S10':
                 estado_actual = self._token(']', 'S10', 'S8')
+                hijo_derecho = hijo_izquierdo
                 print(hijo_derecho)
                 print(hijo_izquierdo)
                 print(operador)
-                hijo_izquierdo = result
 
             # S8 -> "Valor2" S11
             elif estado_actual == 'S8':
@@ -251,8 +259,8 @@ class Analizador:
                         # REALIZAR LA OPERACION ARITMETICA Y DEVOLVER UN SOLO VALOR
                         result = self.calcularTotal(
                             hijo_izquierdo, operador, hijo_derecho)
-                        self.ListaResultados.append(
-                            [hijo_izquierdo, operador, hijo_derecho, result])
+                        self.ListaResultadosTmp.append(
+                            [hijo_izquierdo, operador, hijo_derecho, result, 0, 0])
                         print("\t*****OPERACION ARITMETICA*****")
                         print(f"{operador}  {result}")
                         print('\t*******************************\n')
@@ -271,13 +279,16 @@ class Analizador:
                 estado_actual = self._token(']', 'S15', 'S13')
                 result = self.calcularTotal(
                     hijo_izquierdo, operador, hijo_derecho)
-                self.ListaResultados.append(
-                    [hijo_izquierdo, operador, hijo_derecho, result])
+                self.ListaResultadosTmp.append(
+                    [hijo_izquierdo, operador, hijo_derecho, result, 0, 0])
                 # REALIZAR LA OPERACION ARITMETICA Y DEVOLVER UN SOLO VALOR
                 print("\t*****OPERACION ARITMETICA*****")
                 print(f"{operador} {result}")
                 print('\t*******************************\n')
                 return [estado_sig, result]
+
+            # elif estado_actual == 'S18':
+            #     estado_actual = self._token('', '', '')
 
             # ERRORES
             if estado_actual == 'ERROR':
@@ -288,6 +299,145 @@ class Analizador:
                 self.guardarErrores(
                     self.lineas[self.index], self.fila, self.columna)
                 return ['ERROR', -1]
+
+            # INCREMENTAR POSICION
+            if self.index < len(self.lineas) - 1:
+                self.index += 1
+            else:
+                break
+
+    def _decorate(self, estado_sig):
+
+        estado_actual = 'S18'
+        flag = True
+        while self.lineas[self.index] != "":
+            # print(f'CARACTER OP - {self.lineas[self.index] } | ESTADO - {estado_actual} | FILA - {self.fila}  | COLUMNA - {self.columna}')
+            print("here" + estado_actual)
+            # IDENTIFICAR SALTO DE LINEA
+            if self.lineas[self.index] == '\n':
+                self.fila += 1
+                self.columna = 0
+
+            # S18 -> "Operacion" S19
+            elif estado_actual == 'S18':
+                estado_actual = self._token('"Texto"', 'S18', 'S19')
+
+            # S19 -> : S20
+            elif estado_actual == 'S19':
+                estado_actual = self._token(':', 'S19', 'S20')
+
+            # S20 -> OPERADOR S21
+            elif estado_actual == 'S20':
+                flag = True
+                indexTemp = self.index
+                while flag == True:
+                    if (self.lineas[self.index] == '"'):
+                        self.index += 1
+                        flag = False
+                    else:
+                        self.index += 1
+                flag = True
+                while flag == True:
+                    print(self.lineas[self.index])
+                    if (self.lineas[self.index] == '"'):
+                        flag = False
+                        estadp_actual = 'S21'
+                    else:
+                        self.title += self.lineas[self.index]
+                        self.index += 1
+                print(self.title)
+                self.index = indexTemp
+                estado_actual = self._token(f'"{self.title}"', 'S20', 'S21')
+
+            # S21 -> "Operacion" S22
+            elif estado_actual == 'S21':
+                estado_actual = self._token('"Color-Fondo-Nodo"', 'S21', 'S22')
+
+            # S22 -> : S23
+            elif estado_actual == 'S22':
+                estado_actual = self._token(':', 'S22', 'S23')
+
+            # S23 -> OPERADOR S24
+            elif estado_actual == 'S23':
+                flag = True
+                indexTemp = self.index
+                while flag == True:
+                    if (self.lineas[self.index] == '"'):
+                        self.index += 1
+                        flag = False
+                    else:
+                        self.index += 1
+                flag = True
+                while flag == True:
+                    if (self.lineas[self.index] == '"'):
+                        flag = False
+                    else:
+                        self.colorFondo += self.lineas[self.index]
+                        self.index += 1
+                print(self.colorFondo)
+                self.index = indexTemp
+                estado_actual = self._token(
+                    f'"{self.colorFondo}"', 'S23', 'S24')
+
+            # S24 -> "Color-Fuente-Nodo" S25
+            elif estado_actual == 'S24':
+                estado_actual = self._token(
+                    '"Color-Fuente-Nodo"', 'S24', 'S25')
+
+            # S25 -> : S26
+            elif estado_actual == 'S25':
+                estado_actual = self._token(':', 'S25', 'S26')
+
+            # S26 -> ColorFuente S27
+            elif estado_actual == 'S26':
+                flag = True
+                indexTemp = self.index
+                while flag == True:
+                    if (self.lineas[self.index] == '"'):
+                        self.index += 1
+                        flag = False
+                    else:
+                        self.index += 1
+                flag = True
+                while flag == True:
+                    if (self.lineas[self.index] == '"'):
+                        flag = False
+                    else:
+                        self.colorFuente += self.lineas[self.index]
+                        self.index += 1
+                print(self.colorFuente)
+                self.index = indexTemp
+                estado_actual = self._token(
+                    f'"{self.colorFuente}"', 'S26', 'S27')
+
+            # S27 -> "Forma-Nodo" S28
+            elif estado_actual == 'S27':
+                estado_actual = self._token('"Forma-Nodo"', 'S27', 'S28')
+
+            # S25 -> : S26
+            elif estado_actual == 'S28':
+                estado_actual = self._token(':', 'S28', 'S29')
+
+            # S26 -> ColorFuente S27
+            elif estado_actual == 'S29':
+                flag = True
+                indexTemp = self.index
+                while flag == True:
+                    if (self.lineas[self.index] == '"'):
+                        self.index += 1
+                        flag = False
+                    else:
+                        self.index += 1
+                flag = True
+                while flag == True:
+                    if (self.lineas[self.index] == '"'):
+                        flag = False
+                    else:
+                        self.forma += self.lineas[self.index]
+                        self.index += 1
+                print(self.forma)
+                self.index = indexTemp
+                estado_actual = self._token(f'"{self.forma}"', 'S29', 'S30')
 
             # INCREMENTAR POSICION
             if self.index < len(self.lineas) - 1:
@@ -331,10 +481,27 @@ class Analizador:
                 # print("ESTO DE ULTIMO")
                 estado_actual = self._token('}', 'S13', 'S16')
 
-            # S16 -> ,
+                # Se guardan todas las operaciones para desplegarlas previamente
+                contador = 0
+                self.nOperacion += 1
+                for i in self.ListaResultadosTmp:
+                    i[4] = self.nOperacion
+                    i[5] = contador
+                    self.ListaResultados.append(i)
+                    contador += 1
+
+                self.ListaResultadosTmp = []
+                # S16 -> ,
             elif estado_actual == 'S16':
                 if self.lineas[self.index] != ' ':
                     estado_actual = self._token(',', 'S16', 'S1')
+                else:
+                    a = self._decorate('S18')
+                    print("final" + estado_actual)
+
+            elif estado_actual == 'S18':
+                print("hereherhere")
+                estado_actual = self._token('', '', '')
 
             elif estado_actual == 'S17':
                 break
@@ -355,18 +522,23 @@ class Analizador:
             {"token": token, "fila": fila, "columna": columna})
 
     def graficar(self):
+        abc = "abcdefghijklmnopqrstuvwxyz"
         counter = 0
+        index = 0
         archivoDOT = open("digraph.dot", "w")
         archivoDOT.write("digraph { \n")
         archivoDOT.write('rankdir = LR \n')
         archivoDOT.write(
-            'node[shape=record, fontname="Arial Black", fontsize=16] \n')
+            f'node[shape={self.forma.lower()} style=filled fontcolor={self.colorFuente.lower()} color={self.colorFondo.lower()}] \n')
         for i in self.ListaResultados:
-            archivoDOT.write(f"{counter} -> {i[0]} \n")
-            archivoDOT.write(f"{counter} -> {i[2]} \n")
+            archivoDOT.write(f' "{abc[counter]}" [label = {i[1]}] \n')
+            archivoDOT.write(f"{abc[counter]} -> {i[0]} \n")
+            archivoDOT.write(f"{abc[counter]} -> {i[2]} \n")
             counter += 1
         archivoDOT.write("} \n")
         archivoDOT.close()
+
+        os.system("dot.exe -Tpng digraph.dot -o  Analisis.png")
 
 
 a = Analizador(lineas)

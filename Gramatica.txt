@@ -50,7 +50,21 @@ S13 -> } S16
 S16 -> , S17
 S17 -> S1 S18
 S16 -> } S18
-S18 -> Epsilon
+
+S18 -> "Texto" S19
+S19 -> : S20
+S20 -> Titulo S21
+S21 -> "Color-Fondo-Nodo" S22
+S22 -> : S23
+S23 -> ColorFondo S24
+S24 -> "Color-Fuente-Nodo" S25
+S25 -> : S26
+S26 -> ColorFuente S27
+S27 -> "Forma-Nodo" S28
+S28 -> : S9
+S30 -> Shape S31
+S31 -> } S32
+S32 -> Epsilon
 
 
 
