@@ -1,7 +1,8 @@
 import os
 
-archivo = open('entrada.txt', 'r')
+archivo = open('text.txt', 'r', encoding="utf-8")
 lineas = ''
+
 for i in archivo.readlines():
     lineas += i
 
@@ -12,25 +13,29 @@ class Analizador:
     def __init__(self, entrada: str):
         self.lineas = entrada  # ENTRADA
         self.index = 0  # POSICION DE CARACTERES EN LA ENTRADA
-        self.fila = 0  # FILA ACTUAL
+        self.fila = 1  # FILA ACTUAL
         self.columna = 0  # COLUMNA ACTUAL
+        self.guardarFormula = []
         self.ListaErrores = []  # LISTA PARA GUARDAR ERRORES
-        self.ListaResultadosTmp = []
-        self.ListaResultados = []
-        self.nOperacion = 0
-        self.title = ""
-        self.colorFondo = ""
-        self.colorFuente = ""
-        self.forma = ""
+        self.MaestroFormulas = []
+        self.TokenList = []
+        self.TokenID = 0
+        self.error_type = ""
+        self.Formula = ""
+        self.TokenActual = ""
+        self.DescErr = ""
 
     def _token(self, token: str, estado_actual: str, estado_sig: str):
+        print(f"linea: {self.lineas[self.index]}")
         if self.lineas[self.index] != " ":
             text = self._juntar(self.index, len(token))
+            print(f"text: {text}")
             if self._analizar(token, text):
                 self.index += len(token) - 1
                 self.columna += len(token) - 1
                 return estado_sig
             else:
+                # GUARDARIA ERROR LEXICO
                 return 'ERROR'
         else:
             return estado_actual
@@ -50,7 +55,6 @@ class Analizador:
             tokem_tmp = ""
             for i in texto:
                 # CUANDO LA LETRA HAGA MATCH CON EL TOKEN ENTRA
-                # print('COMBINACION -> ',i , '==', token[count])
                 if str(i) == str(token[count]):
                     tokem_tmp += i
                     count += 1
@@ -64,380 +68,449 @@ class Analizador:
             # print('ERROR2')
             return False
 
-    def _digito(self, estado_sig):
-        estado_actual = 'D0'
-        numero = ""
-        while self.lineas[self.index] != "":
-            # print(f'CARACTER - {self.lineas[self.index] } | ESTADO - {estado_actual} | FILA - {self.fila}  | COLUMNA - {self.columna}')
-
-            # IDENTIFICAR SALTO DE LINEA
-            if self.lineas[self.index] == '\n':
-                self.fila += 1
-                self.columna = 0
-
-            # PARA SALIRSE
-            elif str(self.lineas[self.index]) == '"':
-                self.index -= 1
-                return [estado_sig, numero]
-            elif str(self.lineas[self.index]) == ']':
-                self.index -= 1
-                return [estado_sig, numero]
-            elif str(self.lineas[self.index]) == '}':
-                self.index -= 1
-                return [estado_sig, numero]
-
-            # VERIFICAR SI ES DECIMAL
-            elif self.lineas[self.index] == '.':
-                token = "."
-                if estado_actual == 'D2' or estado_actual == 'D0':
-                    estado_actual = 'ERROR'
-                elif self.lineas[self.index] != ' ':
-                    text = self._juntar(self.index, len(token))
-                    if self._analizar(token, text):
-                        numero += text
-                        estado_actual = 'D2'
-                        self.index += len(token) - 1
-                        self.columna += len(token) - 1
-                    else:
-                        estado_actual = 'ERROR'
-
-            # ************************
-            #         ESTADOS
-            # ************************
-
-            # D0 -> [0-9] D0
-            elif estado_actual == 'D0' or estado_actual == 'D1':
-                if self.lineas[self.index] != ' ':
-                    estado_actual = 'ERROR'
-                    for i in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']:
-                        token = i
-                        text = self._juntar(self.index, len(token))
-                        if self._analizar(token, text):
-                            numero += text
-                            estado_actual = 'D1'
-                            break
-
-            # D2 -> [0-9] D2
-            elif estado_actual == 'D2':
-                if self.lineas[self.index] != ' ':
-                    estado_actual = 'ERROR'
-                    for i in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']:
-                        text = self._juntar(self.index, len(i))
-                        if self._analizar(i, text):
-                            numero += text
-                            estado_actual = 'D2'
-                            break
-
-            # ERRORES
-            if estado_actual == 'ERROR':
-                return ['ERROR', -1]
-
-            # INCREMENTAR POSICION
-            if self.index < len(self.lineas) - 1:
-                self.index += 1
+    def _analizarCadena(self):
+        estado_aux = ""
+        tmp = self.index
+        cadena = ""
+        while self.lineas[tmp] != "":
+            if self.lineas[tmp] == '\n':
+                return 'ERROR'
+            elif estado_aux == '':
+                estado_aux = "INICIO"
+            elif self.lineas[tmp] == " " or self.lineas[tmp] == "(" or self.lineas[tmp] == ")" or self.lineas[tmp] == ",":
+                return [cadena, tmp]
+            elif estado_aux == 'INICIO':
+                cadena += self.lineas[tmp]
+                # print(f'CADENA - {self.lineas[tmp] } ')
+            if tmp < len(self.lineas) - 1:
+                tmp += 1
             else:
                 break
 
-    def calcularTotal(self, val1, op, val2):
-        total = 0
-        print(val1)
-        print(val2)
-        if op == '"Potencia"':
-            total = float(val1)**float(val2)
-        elif op == '"Suma"':
-            total = float(val1) + float(val2)
-        elif op == '"Resta"':
-            total = float(val1) - float(val2)
-        elif op == '"Multiplicacion"':
-            total = float(val1) * float(val2)
-        elif op == '"Division"':
-            total = float(val1)/float(val2)
-        elif op == '"Mod"':
-            total = 0
+    def _analizarCadenaJSON(self):
+        estado_aux = ""
+        tmp = self.index
+        cadena = ""
+        while self.lineas[tmp] != "":
+            print(cadena)
+            if estado_aux == '':
+                estado_aux = "INICIO"
+            elif cadena == "$set":
+                return [cadena, tmp]
+            elif self.lineas[tmp] == '"':
+                return [cadena, tmp]
+            elif estado_aux == 'INICIO':
+                cadena += self.lineas[tmp]
+            if tmp < len(self.lineas) - 1:
+                tmp += 1
+            else:
+                break
 
-        return total
-
-    def _operaciones(self, estado_sig):
-        estado_actual = 'S2'
-        hijo_derecho = ""
-        hijo_izquierdo = ""
-        operador = ""
-        result = 0
+    def _analizarJSON(self):
+        estado_aux = "INICIO"
+        estado_tmp = "INICIO"
+        cadena = ""
+        Json = []
+        jsonTmp = []
         while self.lineas[self.index] != "":
-            # print(f'CARACTER OP - {self.lineas[self.index] } | ESTADO - {estado_actual} | FILA - {self.fila}  | COLUMNA - {self.columna}')
+            self.columna += 1
 
-            # IDENTIFICAR SALTO DE LINEA
             if self.lineas[self.index] == '\n':
                 self.fila += 1
                 self.columna = 0
 
-            # ************************
-            #         ESTADOS
-            # ************************
+            # INICIO -> , S0
+            elif estado_aux == 'INICIO':
+                estado_aux = self._token(',', 'INICIO', 'S0')
+                self.TokenActual = ","
+                self.DescErr = "No se encontro el separador de parametros"
+                if estado_aux != 'ERROR':
+                    self.TokenID += 1
+                    self.TokenList.append([self.TokenID, 'Separador', ','])
 
-            # S2 -> "Operacion" S3
-            elif estado_actual == 'S2':
-                estado_actual = self._token('"Operacion"', 'S2', 'S3')
+            # S0 -> " S1
+            elif estado_aux == 'S0':
+                estado_aux = self._token('“', 'S0', 'S1')
+                self.TokenActual = '"'
+                self.DescErr = "Error al detectar la cadena"
+                if estado_aux != 'ERROR':
+                    self.TokenID += 1
+                    self.TokenList.append(
+                        [self.TokenID, 'Apertura Parametro', '"'])
 
-            # S3 -> : S4
-            elif estado_actual == 'S3':
-                estado_actual = self._token(':', 'S3', 'S4')
+            # S1 -> { S2
+            elif estado_aux == 'S1':
+                estado_tmp = 'S1'
+                estado_aux = self._token('{', 'S1', 'S2')
+                self.TokenActual = "{"
+                self.DescErr = "Error al iniciar JSON"
+                if estado_tmp != estado_aux:
+                    cadena += '"\n {\n'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Inicio JSON', '{'])
 
-            # S4 -> OPERADOR S5
-            elif estado_actual == 'S4':
-                operadores = ['"Suma"', '"Resta"', '"Multiplicacion"', '"Division"', '"Potencia"',
-                              '"Raiz"', '"Inverso"', '"Seno"', '"Coseno"', '"Tangente"', '"Mod"']
-                for i in operadores:
-                    estado_actual = self._token(i, 'S4', 'S5')
-                    if estado_actual != 'ERROR':
-                        operador = i
-                        break
+            # S2 -> " S3
+            elif estado_aux == 'S2':
+                estado_tmp = 'S2'
+                estado_aux = self._token('"', 'S2', 'S3')
+                self.TokenActual = '"'
+                self.DescErr = "Error al detectar la cadena"
+                if estado_tmp != estado_aux:
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Inicio Cadena', '"'])
 
-            # S5 -> "Valor1" S6
-            elif estado_actual == 'S5':
-                estado_actual = self._token('"Valor1"', 'S5', 'S6')
+            # S3 -> ID S4
+            elif estado_aux == 'S3':
+                self.index -= 1
+                result = self._analizarCadenaJSON()
+                self.TokenActual = 'ID'
+                self.DescErr = "Error al leer el ID"
+                self.index += 1
+                estado_aux = self._token(result[0], 'S3', 'S4')
+                if estado_tmp != estado_aux:
+                    jsonTmp.append(result[0])
+                    cadena += '     "'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append([self.TokenID, 'ID', result[0]])
 
-            # S6 -> : S7
-            elif estado_actual == 'S6':
-                estado_actual = self._token(':', 'S6', 'S7')
+            # S4 -> " S5
+            elif estado_aux == 'S4':
+                estado_tmp == 'S4'
+                estado_aux = self._token('"', 'S4', 'S5')
+                self.TokenActual = '"'
+                self.DescErr = "Error al detectar la cadena"
+                if estado_tmp != estado_aux:
+                    cadena += f'{result[0]}'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Cierre Cadena', '"'])
 
-            # S7 -> DIGITO S8
-            # S7 -> [ S9
-            elif estado_actual == 'S7':
-                estado_actual = self._token('[', 'S7', 'S9')
-                if estado_actual == 'ERROR':
-                    estado_actual = 'S8'
-                    a = self._digito('S8')
-                    if "ERROR" == a[0]:
-                        estado_actual = 'ERROR'
-                    elif a[0] == 'S8':
-                        hijo_izquierdo = a[1]
+            # S5 -> : S6
+            elif estado_aux == 'S5':
+                estado_tmp = 'S5'
+                estado_aux = self._token(':', 'S5', 'S6')
+                self.TokenActual = ':'
+                self.DescErr = "Falta un caracter"
+                if estado_tmp != estado_aux:
+                    cadena += '"'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Asignacion', ':'])
 
-            # S9 -> S2 S10
-            elif estado_actual == 'S9':
-                a = self._operaciones('S10')
-                estado_actual = a[0]
-                hijo_izquierdo = a[1]
+            # S6 -> " S7
+            elif estado_aux == 'S6':
+                estado_tmp = 'S6'
+                estado_aux = self._token('"', 'S6', 'S7')
+                self.TokenActual = '"'
+                self.DescErr = "Error al detectar la cadena"
+                if estado_tmp != estado_aux:
+                    cadena += ' :'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Inicio Cadena', '"'])
 
-            # S10 -> ] S8
-            elif estado_actual == 'S10':
-                estado_actual = self._token(']', 'S10', 'S8')
-                hijo_derecho = hijo_izquierdo
-                print(hijo_derecho)
-                print(hijo_izquierdo)
-                print(operador)
+            # S7 -> VAL S8
+            elif estado_aux == 'S7':
+                estado_tmp = 'S7'
+                self.index -= 1
+                result = self._analizarCadenaJSON()
+                self.index += 1
+                self.TokenActual = 'VAL'
+                self.DescErr = "Error al detectar la cadena"
+                estado_aux = self._token(result[0], 'S7', 'S8')
+                if estado_aux != estado_tmp:
+                    cadena += ' "'
+                    jsonTmp.append(result[0])
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Valor', result[0]])
 
-            # S8 -> "Valor2" S11
-            elif estado_actual == 'S8':
-                if (operador == '"Inverso"' or operador == '"Seno"' or operador == '"Raiz"' or
-                        operador == '"Coseno"' or operador == '"Tangente"'):
-                    self.index -= 1
-                    result = 54
-                    # REALIZAR LA OPERACION ARITMETICA Y DEVOLVER UN SOLO VALOR
-                    print("\t*****OPERACION ARITMETICA*****")
-                    print('\t', operador, '(', hijo_izquierdo, ')')
-                    print('\t*******************************\n')
-                    return ['S13', result]
+            # S8 -> " S9
+            elif estado_aux == 'S8':
+                estado_tmp = 'S8'
+                estado_aux = self._token('"', 'S8', 'S9')
+                self.TokenActual = '"'
+                self.DescErr = "Error al detectar la cadena"
+                if estado_tmp != estado_aux:
+                    cadena += f'{result[0]}'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Cierre Cadena', '"'])
+
+            # S9 -> , S10 | } S11
+            elif estado_aux == 'S9':
+                estado_tmp = 'S9'
+                estado_aux = self._token('}', 'S9', 'S11')
+                self.TokenActual = '}'
+                self.DescErr = "Falto cerrar JSON"
+                if estado_aux == 'ERROR':
+                    estado_aux = self._token(',', 'S9', 'S10')
+                    self.TokenActual = ','
+                self.DescErr = "Error en separador"
+                if estado_tmp != estado_aux:
+                    cadena += '"'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Separador', ','])
+                    else:
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Cierre JSON', '}'])
+
+            # S10 -> " S3
+            elif estado_aux == 'S10':
+                estado_tmp = 'S10'
+                estado_aux = self._token('"', 'S2', 'S3')
+                self.TokenActual = '"'
+                self.DescErr = "Error al detectar la cadena"
+                if estado_tmp != estado_aux:
+                    cadena += ',\n'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, "Inicio Cadena", '"'])
+
+            # S11 -> , S12 | " FIN
+            elif estado_aux == 'S11':
+                estado_tmp = 'S11'
+                estado_aux = self._token('”', 'S11', 'FIN')
+                self.TokenActual = '"'
+                self.DescErr = "Error al detectar la cadena"
+                if estado_aux == 'ERROR':
+                    estado_aux = self._token(',', 'S11', 'S12')
+                    Json.append(jsonTmp.copy())
+                    jsonTmp.clear()
+                    if estado_tmp != estado_aux:
+                        cadena += '\n }'
+                        if estado_aux != 'ERROR':
+                            self.TokenID += 1
+                            self.TokenList.append(
+                                [self.TokenID, 'Separador', ','])
                 else:
-                    estado_actual = self._token('"Valor2"', 'S8', 'S11')
+                    if estado_aux != 'ERROR':
+                        cadena += '\n } \n"'
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, "Cierre Parametro", '"'])
 
-            # S11 -> : S12
-            elif estado_actual == 'S11':
-                estado_actual = self._token(':', 'S11', 'S12')
+            # S12 -> { S13
+            elif estado_aux == 'S12':
+                estado_tmp = 'S12'
+                estado_aux = self._token('{', 'S12', 'S13')
+                self.TokenActual = '"'
+                self.DescErr = "Error al abrir llaves"
+                if estado_tmp != estado_aux:
+                    cadena += ",\n"
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Apertura JSON', '{'])
 
-            # S12 -> DIGITO S13
-            # S12 -> [ S14
-            elif estado_actual == 'S12':
-                estado_actual = self._token('[', 'S12', 'S14')
-                if estado_actual == 'ERROR':
-                    estado_actual = 'S13'
-                    a = self._digito('S13')
-                    if "ERROR" == a[0]:
-                        estado_actual = 'ERROR'
-                    elif 'S13' == a[0]:
-                        hijo_derecho = a[1]
-                        # REALIZAR LA OPERACION ARITMETICA Y DEVOLVER UN SOLO VALOR
-                        result = self.calcularTotal(
-                            hijo_izquierdo, operador, hijo_derecho)
-                        self.ListaResultadosTmp.append(
-                            [hijo_izquierdo, operador, hijo_derecho, result, 0, 0])
-                        print("\t*****OPERACION ARITMETICA*****")
-                        print(f"{operador}  {result}")
-                        print('\t*******************************\n')
-                        return [estado_sig, result]
-
-            # S14 -> S2 S15
-            elif estado_actual == 'S14':
-                estado_actual = 'S15'
-                a = self._operaciones('S15')
-                hijo_derecho = a[1]
-                if "ERROR" == a[0]:
-                    estado_actual = 'ERROR'
-
-            # S15 -> ] S13
-            elif estado_actual == 'S15':
-                estado_actual = self._token(']', 'S15', 'S13')
-                result = self.calcularTotal(
-                    hijo_izquierdo, operador, hijo_derecho)
-                self.ListaResultadosTmp.append(
-                    [hijo_izquierdo, operador, hijo_derecho, result, 0, 0])
-                # REALIZAR LA OPERACION ARITMETICA Y DEVOLVER UN SOLO VALOR
-                print("\t*****OPERACION ARITMETICA*****")
-                print(f"{operador} {result}")
-                print('\t*******************************\n')
-                return [estado_sig, result]
-
-            # elif estado_actual == 'S18':
-            #     estado_actual = self._token('', '', '')
-
-            # ERRORES
-            if estado_actual == 'ERROR':
-                print("********************************")
-                print("\tERROR")
-                print("********************************")
-                # ERROR
-                self.guardarErrores(
-                    self.lineas[self.index], self.fila, self.columna)
-                return ['ERROR', -1]
-
-            # INCREMENTAR POSICION
-            if self.index < len(self.lineas) - 1:
+            # S13 -> $set S14
+            elif estado_aux == 'S13':
+                estado_tmp = 'S13'
+                self.index -= 1
+                result = self._analizarCadenaJSON()
                 self.index += 1
-            else:
-                break
+                estado_aux = self._token(result[0], 'S13', 'S14')
+                self.TokenActual = '$set'
+                self.DescErr = "Error al detectar comando"
+                if estado_tmp != estado_aux:
+                    jsonTmp.append(result[0])
+                    cadena += '\n {\n'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, "Indicador", result[0]])
 
-    def _decorate(self, estado_sig):
+            # S14 -> : S15
+            elif estado_aux == 'S14':
+                estado_tmp = 'S14'
+                estado_aux = self._token(':', 'S14', 'S15')
+                self.TokenActual = ':'
+                self.DescErr = "Error al ingresar valor"
+                if estado_tmp != estado_aux:
+                    cadena += "     $set: "
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Asignacion', ':'])
 
-        estado_actual = 'S18'
-        flag = True
-        while self.lineas[self.index] != "":
-            # print(f'CARACTER OP - {self.lineas[self.index] } | ESTADO - {estado_actual} | FILA - {self.fila}  | COLUMNA - {self.columna}')
-            print("here" + estado_actual)
-            # IDENTIFICAR SALTO DE LINEA
-            if self.lineas[self.index] == '\n':
-                self.fila += 1
-                self.columna = 0
+            # S15 -> { S16
+            elif estado_aux == 'S15':
+                estado_tmp = 'S15'
+                estado_aux = self._token('{', 'S15', 'S16')
+                self.TokenActual = '{'
+                self.DescErr = "Error al iniciar cadena"
+                if estado_tmp != estado_aux:
+                    cadena += "{"
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Apertura JSON', '{'])
 
-            # S18 -> "Operacion" S19
-            elif estado_actual == 'S18':
-                estado_actual = self._token('"Texto"', 'S18', 'S19')
+            # S16 -> " S17
+            elif estado_aux == 'S16':
+                estado_tmp = 'S16'
+                estado_aux = self._token('"', 'S16', 'S17')
+                self.TokenActual = '"'
+                self.DescErr = "Error al detectar la cadena"
+                if estado_tmp != estado_aux:
+                    cadena += '"'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Inicio Cadena', '"'])
 
-            # S19 -> : S20
-            elif estado_actual == 'S19':
-                estado_actual = self._token(':', 'S19', 'S20')
+            # S17 -> ID S18
+            elif estado_aux == 'S17':
+                estado_tmp = 'S17'
+                self.index -= 1
+                result = self._analizarCadenaJSON()
+                self.index += 1
+                estado_aux = self._token(result[0], 'S17', 'S18')
+                self.TokenActual = 'ID'
+                self.DescErr = "Error al ingresar el ID"
+                if estado_tmp != estado_aux:
+                    jsonTmp.append(result[0])
+                    cadena += f'{result[0]}'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append([self.TokenID, 'ID', result[0]])
 
-            # S20 -> OPERADOR S21
-            elif estado_actual == 'S20':
-                flag = True
-                indexTemp = self.index
-                while flag == True:
-                    if (self.lineas[self.index] == '"'):
-                        self.index += 1
-                        flag = False
-                    else:
-                        self.index += 1
-                flag = True
-                while flag == True:
-                    print(self.lineas[self.index])
-                    if (self.lineas[self.index] == '"'):
-                        flag = False
-                        estadp_actual = 'S21'
-                    else:
-                        self.title += self.lineas[self.index]
-                        self.index += 1
-                print(self.title)
-                self.index = indexTemp
-                estado_actual = self._token(f'"{self.title}"', 'S20', 'S21')
+            elif estado_aux == 'S18':
+                estado_tmp = 'S18'
+                estado_aux = self._token('"', 'S18', 'S19')
+                self.TokenActual = '"'
+                self.DescErr = "Error al detectar la cadena"
+                if estado_tmp != estado_aux:
+                    cadena += '"'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Cierre Cadena', '"'])
 
-            # S21 -> "Operacion" S22
-            elif estado_actual == 'S21':
-                estado_actual = self._token('"Color-Fondo-Nodo"', 'S21', 'S22')
+            elif estado_aux == 'S19':
+                estado_tmp = 'S19'
+                estado_aux = self._token(':', 'S19', 'S20')
+                self.TokenActual = ':'
+                self.DescErr = "Error al ingresar valor"
+                if estado_tmp != estado_aux:
+                    cadena += ' : '
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Asignacion', ':'])
 
-            # S22 -> : S23
-            elif estado_actual == 'S22':
-                estado_actual = self._token(':', 'S22', 'S23')
+            # S16 -> " S17
+            elif estado_aux == 'S20':
+                estado_tmp = 'S20'
+                estado_aux = self._token('"', 'S20', 'S21')
+                self.TokenActual = '"'
+                self.DescErr = "Error al detectar la cadena"
+                if estado_tmp != estado_aux:
+                    cadena += '"'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Inicio Cadena', '"'])
 
-            # S23 -> OPERADOR S24
-            elif estado_actual == 'S23':
-                flag = True
-                indexTemp = self.index
-                while flag == True:
-                    if (self.lineas[self.index] == '"'):
-                        self.index += 1
-                        flag = False
-                    else:
-                        self.index += 1
-                flag = True
-                while flag == True:
-                    if (self.lineas[self.index] == '"'):
-                        flag = False
-                    else:
-                        self.colorFondo += self.lineas[self.index]
-                        self.index += 1
-                print(self.colorFondo)
-                self.index = indexTemp
-                estado_actual = self._token(
-                    f'"{self.colorFondo}"', 'S23', 'S24')
+            # S17 -> VAL S18
+            elif estado_aux == 'S21':
+                estado_tmp = 'S21'
+                self.index -= 1
+                result = self._analizarCadenaJSON()
+                self.index += 1
+                estado_aux = self._token(result[0], 'S21', 'S22')
+                self.TokenActual = 'Val'
+                self.DescErr = "Error al leer valor"
+                if estado_tmp != estado_aux:
+                    jsonTmp.append(result[0])
+                    cadena += f'{result[0]}'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Valor', result[0]])
 
-            # S24 -> "Color-Fuente-Nodo" S25
-            elif estado_actual == 'S24':
-                estado_actual = self._token(
-                    '"Color-Fuente-Nodo"', 'S24', 'S25')
+            elif estado_aux == 'S22':
+                estado_tmp = 'S22'
+                estado_aux = self._token('"', 'S22', 'S23')
+                self.TokenActual = '"'
+                self.DescErr = "Error al detectar la cadena"
+                if estado_tmp != estado_aux:
+                    cadena += '"'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Cierre Cadena', '"'])
 
-            # S25 -> : S26
-            elif estado_actual == 'S25':
-                estado_actual = self._token(':', 'S25', 'S26')
+            elif estado_aux == 'S23':
+                estado_tmp = 'S23'
+                estado_aux = self._token('}', 'S23', 'S24')
+                self.TokenActual = '"'
+                self.DescErr = "Error al cerrar JSON"
+                if estado_tmp != estado_aux:
+                    cadena += '}'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Cierre JSON', '}'])
 
-            # S26 -> ColorFuente S27
-            elif estado_actual == 'S26':
-                flag = True
-                indexTemp = self.index
-                while flag == True:
-                    if (self.lineas[self.index] == '"'):
-                        self.index += 1
-                        flag = False
-                    else:
-                        self.index += 1
-                flag = True
-                while flag == True:
-                    if (self.lineas[self.index] == '"'):
-                        flag = False
-                    else:
-                        self.colorFuente += self.lineas[self.index]
-                        self.index += 1
-                print(self.colorFuente)
-                self.index = indexTemp
-                estado_actual = self._token(
-                    f'"{self.colorFuente}"', 'S26', 'S27')
+            elif estado_aux == 'S24':
+                estado_tmp = 'S24'
+                estado_aux = self._token('}', 'S24', 'S25')
+                self.TokenActual = '"'
+                self.DescErr = "Error al cerrar JSON"
+                if estado_tmp != estado_aux:
+                    cadena += '\n }'
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Cierre JSON', '}'])
 
-            # S27 -> "Forma-Nodo" S28
-            elif estado_actual == 'S27':
-                estado_actual = self._token('"Forma-Nodo"', 'S27', 'S28')
+            elif estado_aux == 'S25':
+                estado_tmp = 'S25'
+                estado_aux = self._token('”', 'S25', 'FIN')
+                self.TokenActual = '"'
+                self.DescErr = "Error al detectar la cadena"
+                if estado_tmp != estado_aux:
+                    cadena += '\n"'
+                    self.fila += 1
+                    if estado_aux != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Cierre Parametro', '"'])
 
-            # S25 -> : S26
-            elif estado_actual == 'S28':
-                estado_actual = self._token(':', 'S28', 'S29')
+            if estado_aux == 'ERROR':
+                self.ListaErrores.append([
+                    "Error en estructura JSON", self.fila, self.columna, self.TokenActual, self.DescErr])
+                return 'ERROR'
 
-            # S26 -> ColorFuente S27
-            elif estado_actual == 'S29':
-                flag = True
-                indexTemp = self.index
-                while flag == True:
-                    if (self.lineas[self.index] == '"'):
-                        self.index += 1
-                        flag = False
-                    else:
-                        self.index += 1
-                flag = True
-                while flag == True:
-                    if (self.lineas[self.index] == '"'):
-                        flag = False
-                    else:
-                        self.forma += self.lineas[self.index]
-                        self.index += 1
-                print(self.forma)
-                self.index = indexTemp
-                estado_actual = self._token(f'"{self.forma}"', 'S29', 'S30')
+            if estado_aux == 'FIN':
+                Json.append(jsonTmp.copy())
+                self.guardarFormula.append(Json)
+                self.guardarFormula.append([cadena])
+                print(cadena)
+                return 'S8'
+
+            # S9  -> } S11
+            # S10 -> , S11
+            # S11 -> { S12
+            # S12 -> $set S13
+            # S13 -> : S14
+            # S14 -> S1
+            # S10 -> " S15
 
             # INCREMENTAR POSICION
             if self.index < len(self.lineas) - 1:
@@ -447,69 +520,242 @@ class Analizador:
 
     def _compile(self):
         estado_actual = 'S0'
+        estado_siguiente = 'S0'
         while self.lineas[self.index] != "":
-            # print(f'CARACTER11 - {self.lineas[self.index] } | ESTADO - {estado_actual} | FILA - {self.fila}  | COLUMNA - {self.columna}')
+            self.columna += 1
 
-            # IDENTIFICAR SALTO DE LINEA
-            if self.lineas[self.index] == '\n':
-                self.fila += 1
-                self.columna = 0
-
+            # print(f"Estado actual: {estado_actual}")
+            # print(
+            #     f'CARACTER11 - {self.lineas[self.index] } | ESTADO - {estado_actual} | FILA - {self.fila}  | COLUMNA - {self.columna}')
+            # print(f"index {self.index}")
             # ************************
             #         ESTADOS
             # ************************
-
-            # S0 -> { S1
-            elif estado_actual == 'S0':
-                estado_actual = self._token('{', 'S0', 'S1')
-
-            # S1 -> { S2
-            elif estado_actual == 'S1':
-                estado_actual = self._token('{', 'S1', 'S2')
-
-            # S2 -> "Operacion" S3
-            elif estado_actual == 'S2':
-                if self.lineas[self.index] != " ":
-                    a = self._operaciones('S13')
-                    estado_actual = a[0]
-                    print("\t*****RESULTADO*****")
-                    print('\t', a[1])
-                    print('\t*******************************\n')
-
-            # S13 -> }
-            elif estado_actual == 'S13':
-                # print("ESTO DE ULTIMO")
-                estado_actual = self._token('}', 'S13', 'S16')
-
-                # Se guardan todas las operaciones para desplegarlas previamente
-                contador = 0
-                self.nOperacion += 1
-                for i in self.ListaResultadosTmp:
-                    i[4] = self.nOperacion
-                    i[5] = contador
-                    self.ListaResultados.append(i)
-                    contador += 1
-
-                self.ListaResultadosTmp = []
-                # S16 -> ,
-            elif estado_actual == 'S16':
-                if self.lineas[self.index] != ' ':
-                    estado_actual = self._token(',', 'S16', 'S1')
-                else:
-                    a = self._decorate('S18')
-                    print("final" + estado_actual)
-
-            elif estado_actual == 'S18':
-                print("hereherhere")
-                estado_actual = self._token('', '', '')
-
-            elif estado_actual == 'S17':
+            try:
+                while self.lineas[self.index] == "\n":
+                    self.index += 1
+                    self.fila += 1
+                    self.columna = 0
+            except:
+                print("Fin del recorrido ----------------------")
                 break
 
-            # ERRORES
-            if estado_actual == 'ERROR':
-                # print('\t AQUI OCURRIO UN ERROR')
+            if estado_actual == 'AWAIT':
+                while self.lineas[self.index] != "\n":
+                    self.index += 1
+                self.fila += 1
+                self.columna = 0
                 estado_actual = 'S0'
+
+            elif estado_actual == 'S0':
+                _com1 = self._token('---', 'S0', 'COMENTARIO1')
+                _com2 = self._token('/*', 'S0', 'COMENTARIO2')
+                if _com1 == 'COMENTARIO1':
+                    self._comentarioSimple()
+                    self.fila += 1
+                    if estado_actual != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Comentario', 'Comentario'])
+                elif _com2 == 'COMENTARIO2':
+                    self._comentarioVariasLineas()
+                    if estado_actual != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Comentario', 'Comentario'])
+                else:
+                    funciones = ['CrearBD', 'EliminarBD', 'CrearColeccion', 'EliminarColeccion',
+                                 'InsertarUnico', 'ActualizarUnico', 'EliminarUnico', 'BuscarTodo', 'BuscarUnico']
+                    estado_siguiente = 'S1'
+                    for i in funciones:
+                        estado_actual = self._token(i, 'S0', 'S1')
+                        self.TokenActual = 'Formula'
+                        self.DescErr = "Error, formula no existe"
+                        if estado_actual != 'ERROR':
+                            self.guardarFormula.append(self.fila)
+                            self.guardarFormula.append(i)
+                            if estado_actual != 'ERROR':
+                                self.TokenID += 1
+                                self.TokenList.append(
+                                    [self.TokenID, 'Funcion', i])
+                            break
+
+            # S1 -> ID S2
+            elif estado_actual == 'S1':
+                estado_siguiente = 'S2'
+                result = self._analizarCadena()
+                self.index += 1
+                self.guardarFormula.append(result[0])
+                estado_actual = self._token(result[0], 'S1', 'S2')
+                self.TokenActual = 'ID'
+                self.DescErr = "Error al detectar ID"
+                if estado_actual != 'ERROR':
+                    self.TokenID += 1
+                    self.TokenList.append([self.TokenID, 'ID', result[0]])
+
+            elif estado_actual == 'S2':
+                estado_siguiente = 'S3'
+                estado_actual = self._token('=', 'S2', 'S3')
+                self.TokenActual = '='
+                self.DescErr = "Error al asignar valor"
+                if estado_actual != 'S2':
+                    if estado_actual != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Asignacion', '='])
+
+            elif estado_actual == 'S3':
+                estado_siguiente = 'S4'
+                self.index += 1
+                self.guardarFormula.append('nueva')
+                estado_actual = self._token('nueva', 'S3', 'S4')
+                self.TokenActual = 'Nuevo'
+                self.DescErr = "Error, caracter invalido"
+                self.TokenActual = 'Val'
+                self.DescErr = "Error, caracter invalido"
+                if estado_actual != 'S3':
+                    if estado_actual != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Nuevo', 'nuevo'])
+
+            elif estado_actual == 'S4':
+                estado_siguiente = 'S5'
+                funciones = ['CrearBD', 'EliminarBD', 'CrearColeccion', 'EliminarColeccion',
+                             'InsertarUnico', 'ActualizarUnico', 'EliminarUnico', 'BuscarTodo', 'BuscarUnico']
+                for i in funciones:
+                    estado_actual = self._token(i, 'S4', 'S5')
+                    self.TokenActual = 'Formula'
+                    self.DescErr = "Error, formula no existe"
+                    if estado_actual != 'ERROR' and estado_actual != 'S4':
+                        self.guardarFormula.append(i)
+                        if estado_actual != 'ERROR':
+                            self.TokenID += 1
+                            self.TokenList.append([self.TokenID, 'Funcion', i])
+                            self.Formula = i
+                        break
+
+            elif estado_actual == 'S5':
+                estado_siguiente = 'S6'
+                estado_actual = self._token('(', 'S5', 'S6')
+                self.TokenActual = '('
+                self.DescErr = "Error al iniciar la formula"
+                if estado_actual != 'ERROR' and estado_actual != 'S5':
+                    self.TokenID += 1
+                    self.TokenList.append(
+                        [self.TokenID, 'Inicio Parametros', '('])
+
+            elif estado_actual == 'S6':
+                estado_actual = self._token(')', 'S6', 'S9')
+                self.TokenActual = ')'
+                self.DescErr = "Error al cerrar parentesis"
+                if estado_actual == 'ERROR':
+                    self.TokenActual = 'Param1'
+                    self.DescErr = "Error al ingresar el parametro"
+                    if self.Formula == "EliminarBD" or self.Formula == "CrearBD":
+                        self.error_type = "Param"
+                        self.TokenActual = 'Param1'
+                        self.DescErr = "Error, formula no tiene parametros"
+                    else:
+                        estado_siguiente = 'S7'
+                        self.index -= 1
+                        result = self._analizarCadena()
+                        self.index += 1
+                        self.guardarFormula.append(result[0])
+                        estado_actual = self._token(result[0], 'S6', 'S7')
+                        self.TokenList.append(
+                            [self.TokenID, 'Param1', result[0]])
+                else:
+                    if estado_actual != 'ERROR' and estado_actual != 'S6':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Cierre Parametros', ')'])
+                    estado_siguiente = 'S9'
+                    self.guardarFormula.append("NONE")
+                    self.guardarFormula.append("NONE")
+
+            elif estado_actual == 'S7' and self.lineas[self.index] != " ":
+                estado_actual = self._token(')', 'S7', 'S9')
+                self.TokenActual = ')'
+                self.DescErr = "Error al cerrar parentesis"
+                if estado_actual == 'ERROR':
+                    if self.Formula == "CrearColeccion" or self.Formula == "EliminarColeccion" or self.Formula == "BuscarTodo" or self.Formula == "BuscarUnicio":
+                        self.error_type = "Param"
+                        self.TokenActual = 'Param2'
+                        self.DescErr = "Error, parametros exceden el limite"
+                    else:
+                        while self.lineas[self.index] == " ":
+                            self.index += 1
+                            self.columna += 1
+                        estado_siguiente = 'S8'
+                        result = self._analizarJSON()
+                        print(result)
+                        estado_actual = result
+                        if estado_actual == 'ERROR':
+                            break
+                else:
+                    if estado_actual != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Cierre Parametros', ')'])
+                    estado_siguiente = 'S9'
+                    self.guardarFormula.append("NONE")
+
+            elif estado_actual == 'S8':
+                estado_siguiente = 'S9'
+                estado_actual = self._token(')', 'S8', 'S9')
+                self.TokenActual = ')'
+                self.DescErr = "Error al cerrar parentesis"
+                if estado_actual != 'ERROR':
+                    self.TokenID += 1
+                    self.TokenList.append(
+                        [self.TokenID, 'Cierre Parametros', ')'])
+
+            elif estado_actual == 'S9':
+                estado_siguiente = 'S10'
+                estado_actual = self._token(';', 'S9', 'S10')
+                self.TokenActual = ';'
+                self.DescErr = "Error, falta cerrar la linea"
+                if estado_actual == 'S10':
+                    self.guardarFormula.pop(4)
+                    self.MaestroFormulas.append(self.guardarFormula.copy())
+                    self.guardarFormula.clear()
+                    estado_actual = 'S0'
+                    self.columna = 0
+                    self.fila += 1
+                    self.index += 1
+                    if estado_actual != 'ERROR':
+                        self.TokenID += 1
+                        self.TokenList.append(
+                            [self.TokenID, 'Fin de la linea', ';'])
+
+                # ERRORES
+            if estado_actual == 'ERROR' and self.lineas[self.index] != "\n":
+
+                self.ListaErrores.append([
+                    "Sintax Error", self.fila, self.columna, self.TokenActual, self.DescErr])
+                estado_actual = 'AWAIT'
+
+            # if estado_actual == 'ERROR' and self.lineas[self.index] != "\n":
+            #     if self.error_type == "Param":
+            #         self.error_type = ""
+            #         self.ListaErrores.append([
+            #             "Sintax Error", self.fila, self.columna - 1, self.TokenActual, self.DescErr])
+            #         estado_actual = 'AWAIT'
+            #     elif self.lineas[self.index] == " " or self.lineas[self.index] == ")":
+            #         self.ListaErrores.append([
+            #             "Error en la sintaxis", self.fila, self.columna - 1, self.TokenActual, self.DescErr])
+            #         estado_actual = estado_siguiente
+            #         estado_actual = 'AWAIT'
+            #         self.guardarFormula.clear()
+            #     elif self.lineas[self.index] == "\n" and self.columna:
+            #         self.ListaErrores.append([
+            #             "Error en la sintaxis", self.fila, self.columna - 1, self.TokenActual, self.DescErr])
+            #         estado_actual = 'S0'
+            #         self.fila += 1
+
+            #         self.columna = 0
+            #         self.guardarFormula.clear()
 
             # INCREMENTAR POSICION
             if self.index < len(self.lineas) - 1:
@@ -517,32 +763,90 @@ class Analizador:
             else:
                 break
 
-    def guardarErrores(self, token, fila, columna):
-        self.ListaErrores.append(
-            {"token": token, "fila": fila, "columna": columna})
+        self._generarMongoDB()
 
-    def graficar(self):
-        abc = "abcdefghijklmnopqrstuvwxyz"
-        counter = 0
-        index = 0
-        archivoDOT = open("digraph.dot", "w")
-        archivoDOT.write("digraph { \n")
-        archivoDOT.write('rankdir = LR \n')
-        archivoDOT.write(
-            f'node[shape={self.forma.lower()} style=filled fontcolor={self.colorFuente.lower()} color={self.colorFondo.lower()}] \n')
-        for i in self.ListaResultados:
-            archivoDOT.write(f' "{abc[counter]}" [label = {i[1]}] \n')
-            archivoDOT.write(f"{abc[counter]} -> {i[0]} \n")
-            archivoDOT.write(f"{abc[counter]} -> {i[2]} \n")
-            counter += 1
-        archivoDOT.write("} \n")
-        archivoDOT.close()
+    def _generarMongoDB(self):
 
-        os.system("dot.exe -Tpng digraph.dot -o  Analisis.png")
+        archivo = open("MongoDB.txt", "w")
+        texto = ""
+        for i in self.MaestroFormulas:
+            if i[1] == 'CrearBD':
+                texto += f"use('{i[2]}');\n\n"
+                continue
+            if i[1] == 'EliminarBD':
+                texto += f"{i[2]}.dropDatabase(); \n\n"
+                continue
+            if i[1] == 'CrearColeccion':
+                texto += f"dbo.createCollection({i[4]});\n\n"
+                continue
+            if i[1] == 'EliminarColeccion':
+                texto += f"dbo.{i[4][1:-1]}.drop();\n\n"
+                continue
+            if i[1] == 'InsertarUnico':
+                texto += f"dbo.{i[4][1:-1]}.InsertOne({i[6][0]});\n\n"
+                continue
+            if i[1] == 'ActualizarUnido':
+                texto += f"dbo.{i[4][1:-1]}.InsertOne({i[6][0]});\n\n"
+                continue
+            if i[1] == 'EliminarUnico':
+                texto += f"dbo.{i[4][1:-1]}.InsertOne({i[6][0]});\n\n"
+                continue
+            if i[1] == 'BuscarTodo':
+                texto += f"dbo.{i[4][1:-1]}.Find();\n\n"
+                continue
+            if i[1] == 'BuscarUnico':
+                texto += f"dbo.{i[4][1:-1]}.InsertOne();\n\n"
+                continue
+
+        print(texto)
+        archivo.write(texto)
+        archivo.close()
+
+    def _comentarioSimple(self):
+        estado_actual = 'S0'
+        while self.lineas[self.index] != "":
+            # IDENTIFICAR SALTO DE LINEA
+            if self.lineas[self.index] == '\n':
+                if self.lineas[self.index + 1] != '\n':
+                    return
+
+            # ERRORES
+            if estado_actual == 'ERROR':
+                return
+
+            # INCREMENTAR POSICION
+            if self.index < len(self.lineas) - 1:
+                self.index += 1
+            else:
+                break
+
+    def _comentarioVariasLineas(self):
+        # IDENTIFICAR SALTO DE LINEA
+        estado_actual = 'S0'
+        endC = ""
+        while self.lineas[self.index] != "":
+            # IDENTIFICAR SALTO DE LINEA
+            endC += self.lineas[self.index]
+            if self.lineas[self.index] == '\n':
+                self.columna = 0
+                self.fila += 1
+
+            if endC == "*/":
+                break
+
+            # ERRORES
+            if estado_actual == 'ERROR':
+                return
+
+            # INCREMENTAR POSICION
+            if self.index < len(self.lineas) - 1:
+                endC = self.lineas[self.index]
+                self.index += 1
+            else:
+                break
 
 
 a = Analizador(lineas)
 a._compile()
+print(a.MaestroFormulas)
 print(a.ListaErrores)
-print(a.ListaResultados)
-a.graficar()

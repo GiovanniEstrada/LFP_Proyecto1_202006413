@@ -1,71 +1,56 @@
-{
-    {
-        "Operacion":"Suma"
-        "Valor1":4.5
-        "Valor2":5.32
-    },
-    {
-        "Operacion":"Resta"
-        "Valor1":4.5
-        "Valor2":[
-        "Operacion":"Potencia"
-        "Valor1":10
-        "Valor2":3
-    ]},
-    {
-        "Operacion":"Suma"
-        "Valor1":[
-            "Operacion":"Seno"
-            "Valor1":90
-        ]
-        "Valor2":5.32
-    }
-    "Texto":"Realizacion de Operaciones"
-    "Color-Fondo-Nodo":"Amarillo"
-    "Color-Fuente-Nodo":"Rojo"
-    "Forma-Nodo":"Circulo"
-}
+Funcion . Nombre . = . nueva . Funcion . ( Attr? ) . ;
 
-S0 -> { S1
+Attr ----------------------------------------------------------
+("Par1" | Par1 . , . JSON)
+
+JSON ----------------------------------------------------------
+{ . "ID" . : . "ID" . ( . , . "ID" . : . "ID" . )* . } . ( . , . { . $set . { . "ID" . : . "ID" . } . } . )?
+
+
+Completo:
+Funcion . Nombre . = . nueva . Funcion . ( . ( .  ("Par1" | Par1 . , . { . "ID" . : . "ID" . ( , . "ID" . : . "ID" . ) . * . } . ( . , . { . $set . { . "ID" . : . "ID" . } . } . )? .) . ) . ? . ) . ;
+
+S0 -> Funcion S1
+S1 -> Nombre S2
+S2 -> = S3
+S3 -> nueva S4
+S4 -> Funcion S5
+S5 -> ( S6
+S6 -> atributo S7
+S6 -> ) S8
+S7 -> ) S8
+S8 -> ; S9
+
+
+S0 -> --- COMENTARIO | Funcion S1
+S1 -> NombreS2
+S2 -> = S3
+S3 -> Nombre S4
+S4 -> Funcion S5
+S5 -> ( S6
+S6 -> Par1 S7 | ) S9
+S7 -> JSON S8 | ) S9
+S9 -> ; S10
+S10 -> S0
+S10 -> epsilon
+
+
+JSON
+S0 -> " S1
 S1 -> { S2
-S2 -> "Operacion" S3
-S3 -> : S4
-S4 -> SIGNO S5
-
-S5 -> "Valor1" S6
-S6 -> : S7
-S7 -> DIGITO S8
-S7 -> [ S9
-S9 -> S2 S10
-S10 -> ] S8
-
-S8 -> "Valor2" S11
-S11 -> : S12
-S12 -> DIGITO S13
-S12 -> [ S14
-S14 -> S2 S15
-S15 -> ] S13
-
-S13 -> } S16
-S16 -> , S17
-S17 -> S1 S18
-S16 -> } S18
-
-S18 -> "Texto" S19
-S19 -> : S20
-S20 -> Titulo S21
-S21 -> "Color-Fondo-Nodo" S22
-S22 -> : S23
-S23 -> ColorFondo S24
-S24 -> "Color-Fuente-Nodo" S25
-S25 -> : S26
-S26 -> ColorFuente S27
-S27 -> "Forma-Nodo" S28
-S28 -> : S9
-S30 -> Shape S31
-S31 -> } S32
-S32 -> Epsilon
-
-
-
+S2 -> " S3
+S3 -> ID S4
+S4 -> : S5
+S5 -> " S6
+S6 -> VAL S7
+S7 -> " S8
+S8 -> , S9
+S9 -> S2
+S8  -> } S10
+S10 -> , S11
+S11 -> { S12
+S12 -> $set S13
+S13 -> : S14
+S14 -> S1
+S10 -> " S15
 

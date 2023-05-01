@@ -1,0 +1,43 @@
+use('temp1');
+
+temp1.dropDatabase(); 
+
+use('temp');
+
+dbo.createCollection(“literaturas”);
+
+dbo.createCollection(“colectemp”);
+
+dbo.colectemp.drop();
+
+dbo.literaturas.InsertOne("
+ {
+     "nombre" : "Obra Literaria",
+     "autor" : "Jorge Luis"
+ } 
+");
+
+dbo.literaturas.InsertOne("
+ {
+     "nombre" : "El Principito",
+     "autor" : "Antoine de Saint"
+ } 
+");
+
+dbo.literaturas.InsertOne("
+ {
+     "nombre" : "Moldavita. Un Visitante Amigable",
+     "autor" : "Norma Muñoz Ledo"
+ } 
+");
+
+dbo.literaturas.InsertOne("
+ {
+     "nombre" : "Obra Literaria"
+ } 
+");
+
+dbo.literaturas.Find();
+
+dbo.literaturas.InsertOne();
+
